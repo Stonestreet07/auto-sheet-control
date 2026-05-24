@@ -46,8 +46,9 @@ def cargar_datos_tabla():
             titulos_reales = df.iloc[fila_titulos_idx].tolist()
             titulos_reales = [
                 'Rango / Grado' if str(t).strip().upper() == 'RANGO' 
-                else 'Total General' if str(t).strip().upper() == 'REEVALUACION'
-                else 'Evaluados' if str(t).strip().upper() == 'PORCENTAJE'
+                else 'Evaluados / Listos' if str(t).strip().upper() == 'REEVALUACION'
+                else '% Avance' if str(t).strip().upper() == 'PORCENTAJE'
+                else 'Pendientes' if str(t).strip().upper() == 'PENDIENTES'
                 else str(t) for t in titulos_reales
             ]
             
@@ -289,10 +290,15 @@ def estilo_negrita_totales(row):
 if st.button("🔄 Actualizar Tabla"):
     df_actual = cargar_datos_tabla()
     if df_actual is not None:
-        # Aplicamos el estilo a la columna específica antes de mostrarla
-        df_estilizado = df_actual.style.map(resaltar_completado, subset=['% Avance']) \
-                                      .map(resaltar_pendientes, subset=['Pendientes']) \
-                                      .apply(estilo_negrita_totales, axis=1)
+        # Aplicamos el estilo verificando que las columnas existan para evitar KeyError
+        styler = df_actual.style
+        if '% Avance' in df_actual.columns:
+            styler = styler.map(resaltar_completado, subset=['% Avance'])
+        if 'Pendientes' in df_actual.columns:
+            styler = styler.map(resaltar_pendientes, subset=['Pendientes'])
+        
+        df_estilizado = styler.apply(estilo_negrita_totales, axis=1)
+        
         st.dataframe(df_estilizado, use_container_width=True, hide_index=True, 
                      column_config=config_columnas)
     else:
@@ -303,9 +309,14 @@ df_vista = cargar_datos_tabla()
 if df_vista is not None:
     st.write("📋 **Vista consolidada del estado de avance:**")
     # Aplicamos el estilo condicional para la vista por defecto
-    df_estilizado_vista = df_vista.style.map(resaltar_completado, subset=['% Avance']) \
-                                            .map(resaltar_pendientes, subset=['Pendientes']) \
-                                            .apply(estilo_negrita_totales, axis=1)
+    styler_vista = df_vista.style
+    if '% Avance' in df_vista.columns:
+        styler_vista = styler_vista.map(resaltar_completado, subset=['% Avance'])
+    if 'Pendientes' in df_vista.columns:
+        styler_vista = styler_vista.map(resaltar_pendientes, subset=['Pendientes'])
+    
+    df_estilizado_vista = styler_vista.apply(estilo_negrita_totales, axis=1)
+
     st.dataframe(
         df_estilizado_vista, 
         use_container_width=True, 
