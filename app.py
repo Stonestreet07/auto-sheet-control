@@ -47,7 +47,7 @@ def cargar_datos_tabla():
             titulos_reales = [
                 'Rango / Grado' if str(t).strip().upper() == 'RANGO' 
                 else 'Evaluados / Listos' if str(t).strip().upper() == 'REEVALUACION'
-                else '% Avance' if str(t).strip().upper() == 'PORCENTAJE'
+                else 'AVANCE' if str(t).strip().upper() == 'PORCENTAJE'
                 else 'Pendientes' if str(t).strip().upper() == 'PENDIENTES'
                 else str(t) for t in titulos_reales
             ]
@@ -106,9 +106,7 @@ def cargar_datos_tabla():
                 except:
                     pass
                 
-        # 7. Estética final para celdas vacías (coloca el guion después de haber convertido a números)
-        df = df.fillna("-")
-        
+        # 7. Retornamos el DF manteniendo tipos numéricos para que column_config funcione
         return df
     except Exception as e:
         st.error(f"Error en la automatización del reporte: {e}")
@@ -271,6 +269,7 @@ else:
                     st.session_state.datos_cargar[rango] = datos_nuevos[rango]
 
                 st.success(f"¡Reporte del {fecha_formateada} actualizado con éxito!")
+                st.rerun() # Fuerza la actualización inmediata de la tabla inferior
 
             except Exception as e:
                 st.error(f"Hubo un problema al guardar: {e}")
@@ -279,13 +278,13 @@ else:
 st.divider()
 st.subheader("📊 Monitoreo de Registros en Tiempo Real")
 
-# Configuración para forzar 2 decimales y sufijo % en las columnas de porcentaje
+# Configuración para forzar 2 decimales limpios
 config_columnas = {
-    "% Avance": st.column_config.NumberColumn(
-        format="%.2f%%"
+    "AVANCE": st.column_config.NumberColumn(
+        format="%.2f"
     ),
     "PORCENTAJE": st.column_config.NumberColumn(
-        format="%.2f%%"
+        format="%.2f"
     )
 }
 
@@ -309,8 +308,8 @@ if st.button("🔄 Actualizar Tabla"):
     if df_actual is not None:
         # Aplicamos el estilo verificando que las columnas existan para evitar KeyError
         styler = df_actual.style
-        if '% Avance' in df_actual.columns:
-            styler = styler.map(resaltar_completado, subset=['% Avance'])
+        if 'AVANCE' in df_actual.columns:
+            styler = styler.map(resaltar_completado, subset=['AVANCE'])
         if 'Pendientes' in df_actual.columns:
             styler = styler.map(resaltar_pendientes, subset=['Pendientes'])
         
@@ -327,8 +326,8 @@ if df_vista is not None:
     st.write("📋 **Vista consolidada del estado de avance:**")
     # Aplicamos el estilo condicional para la vista por defecto
     styler_vista = df_vista.style
-    if '% Avance' in df_vista.columns:
-        styler_vista = styler_vista.map(resaltar_completado, subset=['% Avance'])
+    if 'AVANCE' in df_vista.columns:
+        styler_vista = styler_vista.map(resaltar_completado, subset=['AVANCE'])
     if 'Pendientes' in df_vista.columns:
         styler_vista = styler_vista.map(resaltar_pendientes, subset=['Pendientes'])
     
