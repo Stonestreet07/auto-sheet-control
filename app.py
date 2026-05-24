@@ -106,7 +106,8 @@ def cargar_datos_tabla():
                 except:
                     pass
                 
-        # 7. Retornamos el DF manteniendo tipos numéricos para que column_config funcione
+        # 7. Reemplazamos celdas vacías (NaN) con 0 para que no se vean vacías y mantener el tipo numérico
+        df = df.fillna(0)
         return df
     except Exception as e:
         st.error(f"Error en la automatización del reporte: {e}")
@@ -288,9 +289,13 @@ config_columnas = {
     )
 }
 
-# Función de estilo para resaltar el 100% en verde (éxito)
-def resaltar_completado(val):
-    return 'background-color: #c8e6c9;' if isinstance(val, (int, float)) and val >= 100 else ''
+# Función de estilo para la columna AVANCE: Verde si llegó al 100%, Rojo suave si no.
+def resaltar_avance(val):
+    if isinstance(val, (int, float)):
+        if val >= 100:
+            return 'background-color: #c8e6c9;' # Verde suave
+        return 'background-color: #ffcdd2;'     # Rojo suave
+    return ''
 
 # Función de estilo para resaltar pendientes en rojo suave
 def resaltar_pendientes(val):
@@ -309,7 +314,7 @@ if st.button("🔄 Actualizar Tabla"):
         # Aplicamos el estilo verificando que las columnas existan para evitar KeyError
         styler = df_actual.style
         if 'AVANCE' in df_actual.columns:
-            styler = styler.map(resaltar_completado, subset=['AVANCE'])
+            styler = styler.map(resaltar_avance, subset=['AVANCE'])
         if 'Pendientes' in df_actual.columns:
             styler = styler.map(resaltar_pendientes, subset=['Pendientes'])
         
@@ -327,7 +332,7 @@ if df_vista is not None:
     # Aplicamos el estilo condicional para la vista por defecto
     styler_vista = df_vista.style
     if 'AVANCE' in df_vista.columns:
-        styler_vista = styler_vista.map(resaltar_completado, subset=['AVANCE'])
+        styler_vista = styler_vista.map(resaltar_avance, subset=['AVANCE'])
     if 'Pendientes' in df_vista.columns:
         styler_vista = styler_vista.map(resaltar_pendientes, subset=['Pendientes'])
     
