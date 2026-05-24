@@ -64,7 +64,7 @@ def cargar_datos_tabla():
         
         # 4. CORTE AUTOMÁTICO HASTA EL TOTAL
         df = df.reset_index(drop=True)
-        posicion_total = df[df.iloc[:, 0].astype(str).str.strip().upper() == 'TOTAL'].index
+        posicion_total = df[df.iloc[:, 0].astype(str).str.strip().str.upper() == 'TOTAL'].index
         
         if not posicion_total.empty:
             idx_total = posicion_total[0]
