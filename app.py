@@ -83,12 +83,20 @@ def cargar_datos_tabla():
                 df_cuerpo = df.iloc[:-2]   # Guardamos todo lo de arriba
                 df = pd.concat([df_cuerpo, fila_total]).reset_index(drop=True)
         
-        # 6. Formatear números decimales automáticamente
+        # 6. Formatear números decimales a 2 posiciones de forma automática
         for col in df.columns:
             try:
+                # Convertimos la columna a numérica por si acaso
                 df[col] = pd.to_numeric(df[col], errors='ignore')
+                
+                # Si la columna contiene números con decimales (como los avances)
                 if df[col].dtype == 'float64' or df[col].dtype == 'float32':
-                    df[col] = df[col].round(1)
+                    # Redondeamos estrictamente a 2 decimales
+                    df[col] = df[col].round(2)
+                    
+                    # OPCIONAL: Si quieres que de una vez aparezca el símbolo '%' en pantalla, 
+                    # descomenta la línea de abajo (Ojo: esto lo convierte a texto para visualización)
+                    # df[col] = df[col].apply(lambda x: f"{x:.2f}%" if pd.notna(x) else x)
             except:
                 pass
                 
