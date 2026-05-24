@@ -32,9 +32,45 @@ def cargar_datos_tabla():
             status, done = downloader.next_chunk()
         
         fh.seek(0)
-        # Leemos con pandas directamente desde el flujo de bytes
-        return pd.read_excel(fh, engine='openpyxl')
-    except Exception:
+        # 1. Leemos el archivo completo
+        df = pd.read_excel(fh, engine='openpyxl')
+        
+        # 2. Asignamos los nombres reales de las columnas en orden estricto (de izquierda a derecha)
+        # Basado en la estructura de tu reporte: Rango, Totales, Avances y Fechas Diarias
+        columnas_reales = [
+            'Rango / Grado',          # Primera columna (Sargentos, Cabos, etc.)
+            'Total General',          # Unnamed: 1
+            'Evaluados / Listos',     # Unnamed: 2
+            '% Avance',               # Unnamed: 3
+            'Pendientes',             # Unnamed: 4
+            'Corte Diario (20 Abr)',  # Unnamed: 5
+            'Corte Diario (21 Abr)',  # Unnamed: 6
+            'Corte Diario (22 Abr)'   # Unnamed: 7
+        ]
+        
+        # Ajustamos el tamaño de la lista de columnas por si tu Excel tiene más columnas a la derecha
+        if len(df.columns) >= len(columnas_reales):
+            # Si tiene más columnas, rellenamos con nombres genéricos para que no falle
+            columnas_reales += [f'Dato_{i}' for i in range(len(df.columns) - len(columnas_reales))]
+        
+        df.columns = columnas_reales[:len(df.columns)]
+        
+        # 3. Limpieza de filas basura (Como las filas que dicen "None" o títulos intermedios molestos)
+        # Quitamos las filas donde el Rango sea completamente nulo o contenga la palabra 'RANGO' repetida
+        df = df[df['Rango / Grado'].notna()]
+        df = df[df['Rango / Grado'].astype(str).str.strip() != 'RANGO']
+        
+        # 4. Formatear números decimales (Redondear porcentajes para que no salgan infinitos)
+        for col in df.columns:
+            if df[col].dtype == 'float64' or df[col].dtype == 'float32':
+                df[col] = df[col].round(1)
+                
+        # 5. Reemplazar valores nulos estéticos
+        df = df.fillna("-")
+        
+        return df
+    except Exception as e:
+        st.error(f"Error al procesar la estructura del reporte: {e}")
         return None
 
 # 2. INTERFAZ DE USUARIO (Streamlit)
@@ -211,9 +247,12 @@ if st.button("🔄 Actualizar Tabla"):
     else:
         st.warning("No se pudo cargar la tabla. Asegúrate de que existan datos.")
 
-# Mostrar la tabla por defecto (últimos 10 registros)
+# Mostrar la tabla por defecto
 df_vista = cargar_datos_tabla()
 if df_vista is not None:
-    st.write("Últimos 10 registros detectados en el archivo:")
-    # Esto hace que la tabla ocupe todo el ancho y se vea limpia
-    st.dataframe(df_vista.tail(10), use_container_width=True, hide_index=True)
+    st.write("📋 **Vista consolidada del estado de avance:**")
+    st.dataframe(
+        df_vista, 
+        use_container_width=True, 
+        hide_index=True
+    )
