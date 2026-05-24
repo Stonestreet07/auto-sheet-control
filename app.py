@@ -35,7 +35,7 @@ def cargar_datos_tabla():
         # 1. Leemos el archivo completo
         df = pd.read_excel(fh, engine='openpyxl')
         
-        # 2. Asignamos la lista completa de encabezados con TODAS las fechas de tu reporte
+        # 1. Asignamos la lista completa de encabezados con TODAS las fechas de tu reporte
         columnas_reales = [
             'Rango / Grado',          # Primera columna (Sargentos, Cabos...)
             'Total General',          # Antiguo Unnamed: 1
@@ -56,11 +56,14 @@ def cargar_datos_tabla():
         
         df.columns = columnas_reales[:len(df.columns)]
         
-        # 3. Limpieza estricta de filas intermedias basura ("None", "RANGO", etc.)
+        # 2. Limpieza estricta de filas intermedias basura ("None", "RANGO", etc.)
         df = df[df['Rango / Grado'].notna()]
         df = df[df['Rango / Grado'].astype(str).str.strip() != 'RANGO']
         
-        # OCULTAR/REMOVER filas basura que Pandas lee del fondo del archivo:
+        # 3. OCULTAR/REMOVER LA FILA DE ABAJO (Fila 18 / Registros extra no deseados)
+        # Filtramos para quitar cualquier fila que tenga valores inválidos o que no pertenezca a los rangos principales
+        # O de forma general, si tu tabla legítima solo tiene los rangos principales y los totales generales,
+        # eliminamos filas vacías o basura que Pandas lee del fondo del archivo:
         df = df[~df['Rango / Grado'].astype(str).str.contains('None|none|total de control', case=False, na=False)]
         
         # 4. Formatear y redondear números flotantes (porcentajes)
