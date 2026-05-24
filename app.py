@@ -265,9 +265,12 @@ else:
 st.divider()
 st.subheader("📊 Monitoreo de Registros en Tiempo Real")
 
-# Configuración para forzar 2 decimales y sufijo % en la columna % Avance
+# Configuración para forzar 2 decimales y sufijo % en las columnas de porcentaje
 config_columnas = {
     "% Avance": st.column_config.NumberColumn(
+        format="%.2f%%"
+    ),
+    "PORCENTAJE": st.column_config.NumberColumn(
         format="%.2f%%"
     )
 }
