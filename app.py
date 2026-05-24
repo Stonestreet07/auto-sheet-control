@@ -323,8 +323,3 @@ if df_vista is not None:
         hide_index=True,
         column_config=config_columnas
     )
-
-    # Gráfico de barras para visualizar el avance por rango
-    st.divider()
-    st.write("### 📈 Análisis Visual de Avance por Rango")
-    st.bar_chart(df_vista, x="Rango / Grado", y="% Avance", color="#2e7d32")
