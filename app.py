@@ -58,21 +58,18 @@ def cargar_datos_tabla():
         # eliminamos filas vacías o basura que Pandas lee del fondo del archivo:
         df = df[~df['Rango / Grado'].astype(str).str.contains('None|none|total de control', case=False, na=False)]
         
-        # 4. Formatear números: Columna 4 con 2 decimales, el resto como enteros
+        # 4. Formatear números: Aseguramos compatibilidad con visualización
         for i, col in enumerate(df.columns):
-            if df[col].dtype in ['float64', 'float32', 'Int64']:
-                if i == 3:  # Columna número 4 (% Avance)
-                    df[col] = df[col].round(2)
-                elif df[col].dtype != 'Int64':
-                    # Convertimos a Int64 (entero que admite nulos) para quitar el ".0"
-                    # Esto aplica para Totales, Pendientes y todas las columnas de Fechas
+            if i == 3: # Columna 4 (% Avance): la mantenemos numérica para st.column_config
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            elif df[col].dtype in ['float64', 'float32', 'Int64', 'int64']:
+                if df[col].dtype not in ['Int64', 'int64']:
                     df[col] = df[col].round(0).astype('Int64')
-                
-                # Convertimos a objeto para permitir que fillna("-") use el carácter "-" sin errores de tipo
-                df[col] = df[col].astype(object)
-                
-        # 5. Estética final para celdas vacías
-        df = df.fillna("-")
+                # Convertimos a objeto para permitir el guion "-" en las celdas vacías
+                df[col] = df[col].astype(object).fillna("-")
+            else:
+                # Otras columnas (como Rango / Grado)
+                df[col] = df[col].fillna("-")
         
         return df
     except Exception as e:
@@ -244,12 +241,37 @@ else:
 st.divider()
 st.subheader("📊 Monitoreo de Registros en Tiempo Real")
 
+# Configuración para forzar 2 decimales y sufijo % en la columna % Avance
+config_columnas = {
+    "% Avance": st.column_config.NumberColumn(
+        format="%.2f%%"
+    )
+}
+
+# Función de estilo para resaltar el 100% en verde (éxito)
+def resaltar_completado(val):
+    return 'background-color: #c8e6c9;' if isinstance(val, (int, float)) and val >= 100 else ''
+
+# Función de estilo para resaltar pendientes en rojo suave
+def resaltar_pendientes(val):
+    return 'background-color: #ffcdd2;' if isinstance(val, (int, float)) and val > 0 else ''
+
+# Función para aplicar negrita a toda la fila si es un total
+def estilo_negrita_totales(row):
+    # Si la celda de la primera columna contiene 'TOTAL', aplicamos negrita a toda la fila
+    es_total = 'TOTAL' in str(row['Rango / Grado']).upper()
+    return ['font-weight: bold' if es_total else '' for _ in row]
+
 # Botón para refrescar la tabla manualmente
 if st.button("🔄 Actualizar Tabla"):
     df_actual = cargar_datos_tabla()
     if df_actual is not None:
-        # Esto hace que la tabla ocupe todo el ancho y se vea limpia
-        st.dataframe(df_actual, use_container_width=True, hide_index=True)
+        # Aplicamos el estilo a la columna específica antes de mostrarla
+        df_estilizado = df_actual.style.map(resaltar_completado, subset=['% Avance']) \
+                                      .map(resaltar_pendientes, subset=['Pendientes']) \
+                                      .apply(estilo_negrita_totales, axis=1)
+        st.dataframe(df_estilizado, use_container_width=True, hide_index=True, 
+                     column_config=config_columnas)
     else:
         st.warning("No se pudo cargar la tabla. Asegúrate de que existan datos.")
 
@@ -257,8 +279,18 @@ if st.button("🔄 Actualizar Tabla"):
 df_vista = cargar_datos_tabla()
 if df_vista is not None:
     st.write("📋 **Vista consolidada del estado de avance:**")
+    # Aplicamos el estilo condicional para la vista por defecto
+    df_estilizado_vista = df_vista.style.map(resaltar_completado, subset=['% Avance']) \
+                                            .map(resaltar_pendientes, subset=['Pendientes']) \
+                                            .apply(estilo_negrita_totales, axis=1)
     st.dataframe(
-        df_vista, 
+        df_estilizado_vista, 
         use_container_width=True, 
-        hide_index=True
+        hide_index=True,
+        column_config=config_columnas
     )
+
+    # Gráfico de barras para visualizar el avance por rango
+    st.divider()
+    st.write("### 📈 Análisis Visual de Avance por Rango")
+    st.bar_chart(df_vista, x="Rango / Grado", y="% Avance", color="#2e7d32")
