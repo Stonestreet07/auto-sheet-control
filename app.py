@@ -60,13 +60,16 @@ def cargar_datos_tabla():
         
         # 4. Formatear números: Porcentajes con 2 decimales, el resto como enteros
         for col in df.columns:
-            if df[col].dtype in ['float64', 'float32']:
+            if df[col].dtype in ['float64', 'float32', 'Int64']:
                 if col == '% Avance':
                     df[col] = df[col].round(2)
-                else:
+                elif df[col].dtype != 'Int64':
                     # Convertimos a Int64 (entero que admite nulos) para quitar el ".0"
                     # Esto aplica para Totales, Pendientes y todas las columnas de Fechas
                     df[col] = df[col].round(0).astype('Int64')
+                
+                # Convertimos a objeto para permitir que fillna("-") use el carácter "-" sin errores de tipo
+                df[col] = df[col].astype(object)
                 
         # 5. Estética final para celdas vacías
         df = df.fillna("-")
