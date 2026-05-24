@@ -83,24 +83,30 @@ def cargar_datos_tabla():
                 df_cuerpo = df.iloc[:-2]   # Guardamos todo lo de arriba
                 df = pd.concat([df_cuerpo, fila_total]).reset_index(drop=True)
         
-        # 6. Formatear números decimales a 2 posiciones de forma automática
+        # 6. Formatear números decimales forzando la columna AVANCE
+        # Buscamos limpiar y redondear explícitamente las columnas numéricas y de porcentaje
+        columnas_numericas = ['TOTAL GLOBAL', 'TOTAL EVALUADO', 'AVANCE', 'PENDIENTE']
+        
         for col in df.columns:
-            try:
-                # Convertimos la columna a numérica por si acaso
-                df[col] = pd.to_numeric(df[col], errors='ignore')
-                
-                # Si la columna contiene números con decimales (como los avances)
-                if df[col].dtype == 'float64' or df[col].dtype == 'float32':
+            # Si es la columna de AVANCE o contiene la palabra, la tratamos con prioridad
+            if 'AVANCE' in str(col).upper() or 'PORCENTAJE' in str(col).upper():
+                try:
+                    # Forzamos la conversión a números flotantes, ignorando errores de texto como los "-"
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
                     # Redondeamos estrictamente a 2 decimales
                     df[col] = df[col].round(2)
-                    
-                    # OPCIONAL: Si quieres que de una vez aparezca el símbolo '%' en pantalla, 
-                    # descomenta la línea de abajo (Ojo: esto lo convierte a texto para visualización)
-                    # df[col] = df[col].apply(lambda x: f"{x:.2f}%" if pd.notna(x) else x)
-            except:
-                pass
+                except:
+                    pass
+            else:
+                # Formateo general para el resto de las columnas del reporte
+                try:
+                    df[col] = pd.to_numeric(df[col], errors='ignore')
+                    if df[col].dtype == 'float64' or df[col].dtype == 'float32':
+                        df[col] = df[col].round(2)
+                except:
+                    pass
                 
-        # 7. Estética final para celdas vacías
+        # 7. Estética final para celdas vacías (coloca el guion después de haber convertido a números)
         df = df.fillna("-")
         
         return df
