@@ -32,29 +32,21 @@ def cargar_datos_tabla():
             status, done = downloader.next_chunk()
         
         fh.seek(0)
-        # 1. Leemos el archivo completo
-        df = pd.read_excel(fh, engine='openpyxl')
+        # 1. Leemos el archivo indicando que los encabezados reales están en la fila 3 (índice 2)
+        df = pd.read_excel(fh, engine='openpyxl', header=2)
         
-        # 1. Asignamos la lista completa de encabezados con TODAS las fechas de tu reporte
-        columnas_reales = [
-            'Rango / Grado',          # Primera columna (Sargentos, Cabos...)
-            'Total General',          # Antiguo Unnamed: 1
-            'Evaluados / Listos',     # Antiguo Unnamed: 2
-            '% Avance',               # Antiguo Unnamed: 3
-            'Pendientes',             # Antiguo Unnamed: 4
-            '20 de abril',            # Antiguo Unnamed: 5
-            '21 de abril',            # Antiguo Unnamed: 6
-            '22 de abril',            # Antiguo Unnamed: 7
-            '23 de abril',            # Reemplaza a Dato_0
-            '24 de abril',            # Reemplaza a Dato_1
-            '25 de abril'             # Reemplaza a Dato_2 (agrega más si tu Excel continúa)
-        ]
+        # 2. Obtenemos los nombres de las columnas que Pandas detectó en esa fila
+        columnas_detectadas = list(df.columns)
         
-        # Ajuste dinámico por si el Excel crece con más días hacia la derecha
-        if len(df.columns) > len(columnas_reales):
-            columnas_reales += [f'Día {i}' for i in range(len(df.columns) - len(columnas_reales))]
+        # 3. Aseguramos nombres limpios para las primeras 5 columnas de control
+        # Esto garantiza que el filtrado posterior funcione sin importar qué diga el Excel en esas celdas
+        nombres_base = ['Rango / Grado', 'Total General', 'Evaluados / Listos', '% Avance', 'Pendientes']
         
-        df.columns = columnas_reales[:len(df.columns)]
+        # Reemplazamos solo los primeros 5 nombres; las fechas (desde la columna 6) se quedan automáticas
+        for i in range(min(len(columnas_detectadas), len(nombres_base))):
+            columnas_detectadas[i] = nombres_base[i]
+            
+        df.columns = columnas_detectadas
         
         # 2. Limpieza estricta de filas intermedias basura ("None", "RANGO", etc.)
         df = df[df['Rango / Grado'].notna()]
