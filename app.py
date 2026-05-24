@@ -58,10 +58,10 @@ def cargar_datos_tabla():
         # eliminamos filas vacías o basura que Pandas lee del fondo del archivo:
         df = df[~df['Rango / Grado'].astype(str).str.contains('None|none|total de control', case=False, na=False)]
         
-        # 4. Formatear números: Porcentajes con 2 decimales, el resto como enteros
-        for col in df.columns:
+        # 4. Formatear números: Columna 4 con 2 decimales, el resto como enteros
+        for i, col in enumerate(df.columns):
             if df[col].dtype in ['float64', 'float32', 'Int64']:
-                if col == '% Avance':
+                if i == 3:  # Columna número 4 (% Avance)
                     df[col] = df[col].round(2)
                 elif df[col].dtype != 'Int64':
                     # Convertimos a Int64 (entero que admite nulos) para quitar el ".0"
