@@ -1,0 +1,5 @@
+# .gitignore
+.streamlit/secrets.toml
+*.json
+__pycache__/
+.venv/
