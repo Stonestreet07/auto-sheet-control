@@ -35,42 +35,45 @@ def cargar_datos_tabla():
         # 1. Leemos el archivo completo
         df = pd.read_excel(fh, engine='openpyxl')
         
-        # 2. Asignamos los nombres reales de las columnas en orden estricto (de izquierda a derecha)
-        # Basado en la estructura de tu reporte: Rango, Totales, Avances y Fechas Diarias
+        # 2. Asignamos la lista completa de encabezados con TODAS las fechas de tu reporte
         columnas_reales = [
-            'Rango / Grado',          # Primera columna (Sargentos, Cabos, etc.)
-            'Total General',          # Unnamed: 1
-            'Evaluados / Listos',     # Unnamed: 2
-            '% Avance',               # Unnamed: 3
-            'Pendientes',             # Unnamed: 4
-            'Corte Diario (20 Abr)',  # Unnamed: 5
-            'Corte Diario (21 Abr)',  # Unnamed: 6
-            'Corte Diario (22 Abr)'   # Unnamed: 7
+            'Rango / Grado',          # Primera columna (Sargentos, Cabos...)
+            'Total General',          # Antiguo Unnamed: 1
+            'Evaluados / Listos',     # Antiguo Unnamed: 2
+            '% Avance',               # Antiguo Unnamed: 3
+            'Pendientes',             # Antiguo Unnamed: 4
+            '20 de abril',            # Antiguo Unnamed: 5
+            '21 de abril',            # Antiguo Unnamed: 6
+            '22 de abril',            # Antiguo Unnamed: 7
+            '23 de abril',            # Reemplaza a Dato_0
+            '24 de abril',            # Reemplaza a Dato_1
+            '25 de abril'             # Reemplaza a Dato_2 (agrega más si tu Excel continúa)
         ]
         
-        # Ajustamos el tamaño de la lista de columnas por si tu Excel tiene más columnas a la derecha
-        if len(df.columns) >= len(columnas_reales):
-            # Si tiene más columnas, rellenamos con nombres genéricos para que no falle
-            columnas_reales += [f'Dato_{i}' for i in range(len(df.columns) - len(columnas_reales))]
+        # Ajuste dinámico por si el Excel crece con más días hacia la derecha
+        if len(df.columns) > len(columnas_reales):
+            columnas_reales += [f'Día {i}' for i in range(len(df.columns) - len(columnas_reales))]
         
         df.columns = columnas_reales[:len(df.columns)]
         
-        # 3. Limpieza de filas basura (Como las filas que dicen "None" o títulos intermedios molestos)
-        # Quitamos las filas donde el Rango sea completamente nulo o contenga la palabra 'RANGO' repetida
+        # 3. Limpieza estricta de filas intermedias basura ("None", "RANGO", etc.)
         df = df[df['Rango / Grado'].notna()]
         df = df[df['Rango / Grado'].astype(str).str.strip() != 'RANGO']
         
-        # 4. Formatear números decimales (Redondear porcentajes para que no salgan infinitos)
+        # OCULTAR/REMOVER filas basura que Pandas lee del fondo del archivo:
+        df = df[~df['Rango / Grado'].astype(str).str.contains('None|none|total de control', case=False, na=False)]
+        
+        # 4. Formatear y redondear números flotantes (porcentajes)
         for col in df.columns:
             if df[col].dtype == 'float64' or df[col].dtype == 'float32':
                 df[col] = df[col].round(1)
                 
-        # 5. Reemplazar valores nulos estéticos
+        # 5. Estética final para celdas vacías
         df = df.fillna("-")
         
         return df
     except Exception as e:
-        st.error(f"Error al procesar la estructura del reporte: {e}")
+        st.error(f"Error al estructurar el reporte dinámico: {e}")
         return None
 
 # 2. INTERFAZ DE USUARIO (Streamlit)
