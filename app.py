@@ -7,46 +7,11 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 import pandas as pd
 
-
-# --- SECCIÓN DE VISUALIZACIÓN (Monitoreo en Tiempo Real) ---
-st.divider()
-st.subheader("📊 Monitoreo de Registros en Tiempo Real")
-
-def cargar_datos_tabla():
-    try:
-        # Descargamos el archivo de Drive para leerlo con Pandas
-        request = drive_service.files().get_media(fileId=FILE_ID)
-        fh = io.BytesIO()
-        downloader = MediaIoBaseDownload(fh, request)
-        done = False
-        while done is False:
-            status, done = downloader.next_chunk()
-        fh.seek(0)
-        return pd.read_excel(fh)
-    except Exception:
-        return None
-
-# Botón para refrescar la tabla manualmente
-if st.button("🔄 Actualizar Tabla"):
-    df_actual = cargar_datos_tabla()
-    if df_actual is not None:
-        # Esto hace que la tabla ocupe todo el ancho y se vea limpia
-        st.dataframe(df_actual, use_container_width=True, hide_index=True)
-    else:
-        st.warning("No se pudo cargar la tabla. Asegúrate de que existan datos.")
-
-# Mostrar la tabla por defecto (últimos 10 registros)
-df_vista = cargar_datos_tabla()
-if df_vista is not None:
-    st.write("Últimos 10 registros detectados en el archivo:")
-    # Esto hace que la tabla ocupe todo el ancho y se vea limpia
-    st.dataframe(df_vista.tail(10), use_container_width=True, hide_index=True)
-# 1. CONFIGURACIÓN DE SEGURIDAD Y GOOGLE DRIVE API
+# 1. CONFIGURACIÓN INICIAL Y SEGURIDAD
 scope = ["https://www.googleapis.com/auth/drive"]
 creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
 drive_service = build('drive', 'v3', credentials=creds)
 
-# REEMPLAZA ESTO: El ID de tu archivo .xlsx en Google Drive
 FILE_ID = "1VyI_Sq6y2lfKUr8r0odOzEsMNuou610H"
 
 RANGOS = [
@@ -55,6 +20,24 @@ RANGOS = [
     "Cabo 1ro", "Cabo 2do", "Agente"
 ]
 
+# Función para cargar los datos actuales para la visualización
+def cargar_datos_tabla():
+    try:
+        # Usamos el servicio ya autenticado para descargar el archivo
+        request = drive_service.files().get_media(fileId=FILE_ID)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+        
+        fh.seek(0)
+        # Leemos con pandas directamente desde el flujo de bytes
+        return pd.read_excel(fh, engine='openpyxl')
+    except Exception:
+        return None
+
+# 2. INTERFAZ DE USUARIO (Streamlit)
 st.title("📋 Control Diario de Evaluaciones (.XLSX)")
 st.subheader("Formulario de Registro Nacional")
 
@@ -214,3 +197,23 @@ else:
 
             except Exception as e:
                 st.error(f"Hubo un problema al guardar: {e}")
+
+# --- SECCIÓN DE VISUALIZACIÓN (Al final del archivo) ---
+st.divider()
+st.subheader("📊 Monitoreo de Registros en Tiempo Real")
+
+# Botón para refrescar la tabla manualmente
+if st.button("🔄 Actualizar Tabla"):
+    df_actual = cargar_datos_tabla()
+    if df_actual is not None:
+        # Esto hace que la tabla ocupe todo el ancho y se vea limpia
+        st.dataframe(df_actual, use_container_width=True, hide_index=True)
+    else:
+        st.warning("No se pudo cargar la tabla. Asegúrate de que existan datos.")
+
+# Mostrar la tabla por defecto (últimos 10 registros)
+df_vista = cargar_datos_tabla()
+if df_vista is not None:
+    st.write("Últimos 10 registros detectados en el archivo:")
+    # Esto hace que la tabla ocupe todo el ancho y se vea limpia
+    st.dataframe(df_vista.tail(10), use_container_width=True, hide_index=True)
