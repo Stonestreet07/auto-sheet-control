@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime, timedelta
+import pytz
 import io
 import openpyxl
 from google.oauth2.service_account import Credentials
@@ -123,10 +124,14 @@ if "datos_cargar" not in st.session_state:
 if "ultima_fecha_procesada" not in st.session_state:
     st.session_state.ultima_fecha_procesada = None
 
-fecha_seleccionada = st.date_input("Seleccione la fecha del reporte:", datetime.now())
+# Configuración de zona horaria de Panamá
+zona_pa = pytz.timezone('America/Panama')
+ahora_pa = datetime.now(zona_pa)
+fecha_actual = ahora_pa.date()
+
+fecha_seleccionada = st.date_input("Seleccione la fecha del reporte:", fecha_actual)
 
 # VALIDACIÓN DEL RANGO DE DÍAS (Hoy y hasta 2 días atrás)
-fecha_actual = datetime.now().date()
 limite_pasado = fecha_actual - timedelta(days=5)
 
 if fecha_seleccionada > fecha_actual:
