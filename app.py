@@ -282,10 +282,10 @@ st.subheader("📊 Monitoreo de Registros en Tiempo Real")
 # Configuración para forzar 2 decimales limpios
 config_columnas = {
     "AVANCE": st.column_config.NumberColumn(
-        format="%.2f"
+        format="%.2f%%"
     ),
     "PORCENTAJE": st.column_config.NumberColumn(
-        format="%.2f"
+        format="%.2f%%"
     )
 }
 
