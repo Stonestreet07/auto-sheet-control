@@ -32,48 +32,71 @@ def cargar_datos_tabla():
             status, done = downloader.next_chunk()
         
         fh.seek(0)
-        # 1. Leemos el archivo indicando que los encabezados reales están en la fila 3 (índice 2)
-        df = pd.read_excel(fh, engine='openpyxl', header=2)
+        # 1. Leemos el excel limpio sin asumir encabezados
+        df = pd.read_excel(fh, engine='openpyxl', header=None)
         
-        # 2. Obtenemos los nombres de las columnas que Pandas detectó en esa fila
-        columnas_detectadas = list(df.columns)
+        # 2. BUSCADOR AUTOMÁTICO DE TÍTULOS
+        fila_titulos_idx = None
+        for idx, row in df.iterrows():
+            if 'RANGO' in [str(val).strip().upper() for val in row.values]:
+                fila_titulos_idx = idx
+                break
         
-        # 3. Aseguramos nombres limpios para las primeras 5 columnas de control
-        # Esto garantiza que el filtrado posterior funcione sin importar qué diga el Excel en esas celdas
-        nombres_base = ['Rango / Grado', 'Total General', 'Evaluados / Listos', '% Avance', 'Pendientes']
-        
-        # Reemplazamos solo los primeros 5 nombres; las fechas (desde la columna 6) se quedan automáticas
-        for i in range(min(len(columnas_detectadas), len(nombres_base))):
-            columnas_detectadas[i] = nombres_base[i]
+        if fila_titulos_idx is not None:
+            titulos_reales = df.iloc[fila_titulos_idx].tolist()
+            titulos_reales = [
+                'Rango / Grado' if str(t).strip().upper() == 'RANGO' 
+                else 'Total General' if str(t).strip().upper() == 'REEVALUACION'
+                else 'Evaluados' if str(t).strip().upper() == 'PORCENTAJE'
+                else str(t) for t in titulos_reales
+            ]
             
-        df.columns = columnas_detectadas
+            df_datos = df.iloc[fila_titulos_idx + 1:].copy()
+            df_datos.columns = titulos_reales
+            df = df_datos
+        else:
+            st.warning("No se detectó la fila de encabezados automáticos.")
+            return None
+
+        # 3. LIMPIEZA BÁSICA DE FILAS VACÍAS
+        df = df[df.iloc[:, 0].notna()]
+        df = df[~df.iloc[:, 0].astype(str).str.contains('None|none', case=False, na=False)]
         
-        # 2. Limpieza estricta de filas intermedias basura ("None", "RANGO", etc.)
-        df = df[df['Rango / Grado'].notna()]
-        df = df[df['Rango / Grado'].astype(str).str.strip() != 'RANGO']
+        # 4. CORTE AUTOMÁTICO HASTA EL TOTAL
+        df = df.reset_index(drop=True)
+        posicion_total = df[df.iloc[:, 0].astype(str).str.strip().upper() == 'TOTAL'].index
         
-        # 3. OCULTAR/REMOVER LA FILA DE ABAJO (Fila 18 / Registros extra no deseados)
-        # Filtramos para quitar cualquier fila que tenga valores inválidos o que no pertenezca a los rangos principales
-        # O de forma general, si tu tabla legítima solo tiene los rangos principales y los totales generales,
-        # eliminamos filas vacías o basura que Pandas lee del fondo del archivo:
-        df = df[~df['Rango / Grado'].astype(str).str.contains('None|none|total de control', case=False, na=False)]
+        if not posicion_total.empty:
+            idx_total = posicion_total[0]
+            # Cortamos temporalmente para asegurar que no entre nada DEBAJO del Total
+            df = df.iloc[:idx_total + 1]
+
+        # 5. LA EXCEPCIÓN: Eliminar "Subcomisionados" SOLO si está pegado al TOTAL (al final)
+        if len(df) >= 2:
+            # Revisamos la fila que quedó justamente ARRIBA del "TOTAL" (la penúltima fila)
+            penultima_fila_texto = str(df.iloc[-2, 0]).strip().upper()
+            
+            if 'SUBCOMISIONADOS' in penultima_fila_texto:
+                # Reconstruimos la tabla saltándonos esa fila penúltima
+                fila_total = df.iloc[[-1]] # Guardamos la fila del TOTAL
+                df_cuerpo = df.iloc[:-2]   # Guardamos todo lo de arriba
+                df = pd.concat([df_cuerpo, fila_total]).reset_index(drop=True)
         
-        # 4. Formatear números: Aseguramos compatibilidad con visualización
-        for i, col in enumerate(df.columns):
-            if i == 3: # Columna 4 (% Avance): la mantenemos numérica para st.column_config
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-            elif df[col].dtype in ['float64', 'float32', 'Int64', 'int64']:
-                if df[col].dtype not in ['Int64', 'int64']:
-                    df[col] = df[col].round(0).astype('Int64')
-                # Convertimos a objeto para permitir el guion "-" en las celdas vacías
-                df[col] = df[col].astype(object).fillna("-")
-            else:
-                # Otras columnas (como Rango / Grado)
-                df[col] = df[col].fillna("-")
+        # 6. Formatear números decimales automáticamente
+        for col in df.columns:
+            try:
+                df[col] = pd.to_numeric(df[col], errors='ignore')
+                if df[col].dtype == 'float64' or df[col].dtype == 'float32':
+                    df[col] = df[col].round(1)
+            except:
+                pass
+                
+        # 7. Estética final para celdas vacías
+        df = df.fillna("-")
         
         return df
     except Exception as e:
-        st.error(f"Error al estructurar el reporte dinámico: {e}")
+        st.error(f"Error en la automatización del reporte: {e}")
         return None
 
 # 2. INTERFAZ DE USUARIO (Streamlit)
