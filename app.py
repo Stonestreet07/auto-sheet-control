@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+import pytz
 import io
 import openpyxl
 from google.oauth2.service_account import Credentials
@@ -133,7 +133,14 @@ if "ultima_fecha_procesada" not in st.session_state:
     st.session_state.ultima_fecha_procesada = None
 
 # Configuración de zona horaria de Panamá
-ahora_pa = datetime.now(ZoneInfo('America/Panama'))
+try:
+    timezone_pa = pytz.timezone('America/Panama')
+    ahora_pa = datetime.now(timezone_pa)
+except Exception:
+    # Fallback: Si falla la zona horaria, usamos la hora local del sistema para no bloquear la app
+    ahora_pa = datetime.now()
+    st.warning("⚠️ No se pudo cargar la zona horaria 'America/Panama'. Usando hora local.")
+
 fecha_actual = ahora_pa.date()
 
 fecha_seleccionada = st.date_input("Seleccione la fecha del reporte:", fecha_actual)
