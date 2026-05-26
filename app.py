@@ -22,6 +22,7 @@ RANGOS = [
 ]
 
 # Función para cargar los datos actuales para la visualización
+@st.cache_data(ttl=600)  # Cache results for 10 minutes
 def cargar_datos_tabla():
     try:
         # Usamos el servicio ya autenticado para descargar el archivo
@@ -313,38 +314,21 @@ def estilo_negrita_totales(row):
 
 # Botón para refrescar la tabla manualmente
 if st.button("🔄 Actualizar Tabla"):
-    df_actual = cargar_datos_tabla()
-    if df_actual is not None:
-        # Aplicamos el estilo verificando que las columnas existan para evitar KeyError
-        styler = df_actual.style
-        if 'AVANCE' in df_actual.columns:
-            styler = styler.map(resaltar_avance, subset=['AVANCE'])
-        if 'Pendientes' in df_actual.columns:
-            styler = styler.map(resaltar_pendientes, subset=['Pendientes'])
-        
-        df_estilizado = styler.apply(estilo_negrita_totales, axis=1)
-        
-        st.dataframe(df_estilizado, use_container_width=True, hide_index=True, 
-                     column_config=config_columnas)
-    else:
-        st.warning("No se pudo cargar la tabla. Asegúrate de que existan datos.")
+    st.cache_data.clear()
+    st.rerun()
 
 # Mostrar la tabla por defecto
 df_vista = cargar_datos_tabla()
 if df_vista is not None:
     st.write("📋 **Vista consolidada del estado de avance:**")
-    # Aplicamos el estilo condicional para la vista por defecto
-    styler_vista = df_vista.style
-    if 'AVANCE' in df_vista.columns:
-        styler_vista = styler_vista.map(resaltar_avance, subset=['AVANCE'])
-    if 'Pendientes' in df_vista.columns:
-        styler_vista = styler_vista.map(resaltar_pendientes, subset=['Pendientes'])
     
-    df_estilizado_vista = styler_vista.apply(estilo_negrita_totales, axis=1)
+    styler = df_vista.style
+    if 'AVANCE' in df_vista.columns:
+        styler = styler.map(resaltar_avance, subset=['AVANCE'])
+    if 'Pendientes' in df_vista.columns:
+        styler = styler.map(resaltar_pendientes, subset=['Pendientes'])
+    
+    df_estilizado = styler.apply(estilo_negrita_totales, axis=1)
 
-    st.dataframe(
-        df_estilizado_vista, 
-        use_container_width=True, 
-        hide_index=True,
-        column_config=config_columnas
-    )
+    # Renderizado con la configuración solicitada
+    st.dataframe(df_estilizado, use_container_width=True, hide_index=True, column_config=config_columnas)
