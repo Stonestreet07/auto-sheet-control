@@ -10,8 +10,15 @@ import pandas as pd
 
 # 1. CONFIGURACIÓN INICIAL Y SEGURIDAD
 scope = ["https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-drive_service = build('drive', 'v3', credentials=creds)
+try:
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+    drive_service = build('drive', 'v3', credentials=creds)
+except KeyError:
+    st.error("❌ Error: No se encontró la clave 'gcp_service_account' en los secretos de Streamlit.")
+    st.stop()
+except Exception as e:
+    st.error(f"❌ Error crítico al configurar las credenciales: {e}")
+    st.stop()
 
 FILE_ID = "1VyI_Sq6y2lfKUr8r0odOzEsMNuou610H"
 
