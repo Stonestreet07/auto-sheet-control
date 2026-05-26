@@ -10,15 +10,23 @@ import pandas as pd
 
 # 1. CONFIGURACIÓN INICIAL Y SEGURIDAD
 scope = ["https://www.googleapis.com/auth/drive"]
-try:
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-    drive_service = build('drive', 'v3', credentials=creds)
-except KeyError:
-    st.error("❌ Error: No se encontró la clave 'gcp_service_account' en los secretos de Streamlit.")
-    st.stop()
-except Exception as e:
-    st.error(f"❌ Error crítico al configurar las credenciales: {e}")
-    st.stop()
+
+@st.cache_resource
+def get_drive_service():
+    try:
+        if "gcp_service_account" not in st.secrets:
+            st.error("❌ No se encontró 'gcp_service_account' en st.secrets")
+            st.stop()
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"], 
+            scopes=scope
+        )
+        return build('drive', 'v3', credentials=creds, cache_discovery=False)
+    except Exception as e:
+        st.error(f"❌ Error al conectar con Google Drive: {e}")
+        st.stop()
+
+drive_service = get_drive_service()
 
 FILE_ID = "1VyI_Sq6y2lfKUr8r0odOzEsMNuou610H"
 
@@ -147,33 +155,28 @@ fecha_seleccionada = st.date_input("Seleccione la fecha del reporte:", fecha_act
 
 # VALIDACIÓN DEL RANGO DE DÍAS (Hoy y hasta 2 días atrás)
 limite_pasado = fecha_actual - timedelta(days=5)
+meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+fecha_formateada = f"{fecha_seleccionada.day} de {meses[fecha_seleccionada.month - 1]}"
 
 if fecha_seleccionada > fecha_actual:
     st.error("❌ No se pueden registrar datos de fechas futuras.")
 elif fecha_seleccionada < limite_pasado:
     st.error(f"🔒 Esta fecha está bloqueada. Solo se pueden modificar reportes desde el {limite_pasado.strftime('%d de %B')}.")
 else:
-    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-    fecha_formateada = f"{fecha_seleccionada.day} de {meses[fecha_seleccionada.month - 1]}"
-
-    # BOTÓN PARA CONSULTAR DATOS EXISTENTES
-    # Esto evita que el programa esté descargando el Excel a cada segundo mientras te mueves por la interfaz
-    if st.button("🔍 Cargar/Verificar datos de esta fecha") or st.session_state.ultima_fecha_procesada != fecha_formateada:
+    # Si cambiamos de fecha, resetear los datos cargados en sesión para obligar a refrescar
+    if st.session_state.ultima_fecha_procesada != fecha_formateada:
+        # En lugar de st.rerun() inmediato, mostramos un botón o cargamos bajo demanda
         with st.spinner("Buscando si existen registros previos en el Excel..."):
             try:
-                # Descargar archivo a la memoria
                 request = drive_service.files().get_media(fileId=FILE_ID)
                 fh = io.BytesIO()
                 downloader = MediaIoBaseDownload(fh, request)
                 done = False
                 while done is False:
                     status, done = downloader.next_chunk()
-
                 fh.seek(0)
-                wb = openpyxl.load_workbook(fh, data_only=True) # data_only=True para leer valores, no las fórmulas escritas
+                wb = openpyxl.load_workbook(fh, data_only=True)
                 ws = wb.active
-
-                # Buscar la columna de la fecha
                 col_idx = None
                 max_col = ws.max_column
                 for col in range(6, max_col + 1):
@@ -181,8 +184,6 @@ else:
                     if celda_valor == fecha_formateada.strip().lower():
                         col_idx = col
                         break
-
-                # Si la columna existe, extraer los números reales del Excel
                 if col_idx:
                     for idx, rango in enumerate(RANGOS):
                         valor_celda = ws.cell(row=4 + idx, column=col_idx).value
@@ -193,18 +194,11 @@ else:
                                 st.session_state.datos_cargar[rango] = 0
                         else:
                             st.session_state.datos_cargar[rango] = 0
-                    
-                    # 💡 ESTE ES EL TRUCO CLAVE: Guardamos la fecha actual en el estado y forzamos el rediseño
-                    st.session_state.ultima_fecha_procesada = fecha_formateada
-                    st.rerun()  # <--- Esto obliga a Streamlit a pintar los números recién cargados
-                    
                 else:
-                    # Si no existe la columna, poner todo en 0 para un registro nuevo
                     for rango in RANGOS:
                         st.session_state.datos_cargar[rango] = 0
-                    st.session_state.ultima_fecha_procesada = fecha_formateada
-                    st.toast(f"ℹ️ No hay datos previos para el {fecha_formateada}. Registro limpio.", icon="📝")
-                    st.rerun() # <--- También redibujamos si es una columna limpia
+                
+                st.session_state.ultima_fecha_procesada = fecha_formateada
 
             except Exception as e:
                 st.error(f"Error al leer datos previos: {e}")
