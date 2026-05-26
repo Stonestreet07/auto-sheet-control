@@ -50,7 +50,12 @@ def cargar_datos_tabla():
         
         fh.seek(0)
         # 1. Leemos el excel limpio sin asumir encabezados
-        df = pd.read_excel(fh, engine='openpyxl', header=None)
+        try:
+            df = pd.read_excel(fh, engine='openpyxl', header=None)
+        except Exception as e:
+            # Si la conexión con Google falla o el archivo está corrupto, la app no muere:
+            st.error(f"❌ No se pudieron sincronizar los datos en tiempo real. Reintentando... ({e})")
+            st.stop() # Esto detiene la ejecución elegantemente sin tumbar el servidor
         
         # 2. BUSCADOR AUTOMÁTICO DE TÍTULOS
         fila_titulos_idx = None
@@ -133,6 +138,13 @@ def cargar_datos_tabla():
 # 2. INTERFAZ DE USUARIO (Streamlit)
 st.title("📋 Control Diario de Evaluaciones (.XLSX)")
 st.subheader("Formulario de Registro Nacional")
+
+# Esto le da la opción al usuario de borrar la memoria si nota datos raros
+if st.sidebar.button("♻️ Forzar Sincronización Firme"):
+    st.cache_data.clear()  # Borra la caché interna de datos de Streamlit
+    st.cache_resource.clear() # Borra la caché de recursos conectados
+    st.success("¡Memoria interna limpia! Recargando datos...")
+    st.rerun()
 
 # Inicializar almacenamiento de datos en la sesión para evitar recargas molestas
 if "datos_cargar" not in st.session_state:
